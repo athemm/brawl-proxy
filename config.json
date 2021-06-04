@@ -1,9 +1,9 @@
 {
   "server": "game.brawlstarsgame.com",
-  "port": 9339,
-  "IgnoreC2S": [10108, 10110],
-  "IgnoreS2C": [20100],
-  "ReplaceKeys": [23,2],
-  "ReplaceVals": [23,2],
+  "port": 843,
+  "IgnoreC2S": [],
+  "IgnoreS2C": [],
+  "ReplaceKeys": [],
+  "ReplaceVals": [],
   "TimeOut": 2
 }

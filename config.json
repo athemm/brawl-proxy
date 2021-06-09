@@ -1,8 +1,9 @@
 {
-  "server": "game.brawlstarsgame.com",
-  "port": 843,
+  "server": "game.clashroyaleapp.com",
+  "port": 9339,
   "IgnoreC2S": [],
-  "IgnoreS2C": [],
+  "DoNotAwaitReplyC2S": [17805, 17559],
+  "IgnoreS2C": [25105],
   "ReplaceKeys": [],
   "ReplaceVals": [],
   "TimeOut": 2

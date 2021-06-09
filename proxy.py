@@ -71,11 +71,7 @@ class ClientThread(Thread):
         last_packet = time.time()
         try:
             while True:
-                try:
-                    header = self.client.recv(7)
-                except KeyboardInterrupt:
-                    self.client.close()
-                    sys.exit(0)
+                header = self.client.recv(7)
 
                 if len(header) > 0:
                     last_packet = time.time()
@@ -98,6 +94,12 @@ class ClientThread(Thread):
                         c2s("Ignoring client's 'packet id " + Fore.LIGHTYELLOW_EX + str(packet_id) + Style.RESET_ALL);
                         continue
 
+                    # Ignore module
+                    if packet_id in self.settings["DoNotAwaitReplyC2S"]:
+                        c2s("Not waiting reply for client's 'packet id " + Fore.LIGHTYELLOW_EX + str(packet_id) + Style.RESET_ALL);
+                        self.send.send(header + data)
+                        continue
+
                     c2s("Client sends packet id " + Fore.LIGHTYELLOW_EX + str(packet_id) + Style.RESET_ALL + " with length " + Fore.GREEN + str(length) + Style.RESET_ALL)
 
                     self.send.send(header + data)
@@ -105,7 +107,7 @@ class ClientThread(Thread):
 
                     try:
                         s2c_header = self.send.recv(7)
-                        s2c_data = self.send.recv(9000024)
+                        s2c_data = self.send.recv(900000024)
                     except:
                         s2c("Packet id " + Fore.LIGHTYELLOW_EX + str(packet_id) + Style.RESET_ALL + " expired...");
                         continue
@@ -118,7 +120,6 @@ class ClientThread(Thread):
                         continue
 
                     s2c("Server responds packet id " + Fore.LIGHTYELLOW_EX + str(s2c_packet_id) + Style.RESET_ALL + " with length " + Fore.GREEN + str(s2c_length) + Style.RESET_ALL)
-                    print(s2c_data)
                     self.client.send(s2c_header + s2c_data)
 
 

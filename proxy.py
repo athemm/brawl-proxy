@@ -8,6 +8,7 @@ from colorama import init
 init()
 
 
+
 def _(*args):
     print(Fore.LIGHTWHITE_EX + '[INFO]' + Style.RESET_ALL, end=' ')
     for arg in args:
@@ -49,13 +50,14 @@ class Server:
 
 class ClientThread(Thread):
     def __init__(self, client, address):
+        global PACKETS
         super().__init__()
         self.client = client
         self.address = address
         self.send = socket.socket()
         self.settings = json.loads(open("config.json", "r").read())
         self.send.connect((self.settings["server"], self.settings["port"]))
-
+        PACKETS = json.loads(open("packets.json", "r").read())
     def recvall(self, length: int):
         data = b''
         while len(data) < length:
@@ -71,54 +73,69 @@ class ClientThread(Thread):
         last_packet = time.time()
         try:
             while True:
-                try:
-                    header = self.client.recv(7)
-                except KeyboardInterrupt:
-                    self.client.close()
-                    sys.exit(0)
+                header = self.client.recv(7)
 
-                if len(header) > 0:
+                if True:#len(header) > 0:
                     last_packet = time.time()
                     packet_id = int.from_bytes(header[:2], 'big')
+
+                    try:
+                        packet_name = PACKETS[str(packet_id)] + f"({packet_id})"
+                    except KeyError:
+                        packet_name = "Unknown" + f"({packet_id})"
+
                     length = int.from_bytes(header[2:5], 'big')
                     data = self.recvall(length)
 
                     # Replace module
                     if packet_id == 10100:
-
                         self.settings = json.loads(open("config.json", "r").read())
                         index = 0
 
                         for Replace in self.settings["ReplaceKeys"]:
                             data = data.replace(Replace.to_bytes(4, 'big'), self.settings["ReplaceVals"][index].to_bytes(4, 'big'))
                             index += 1
-                    
+
+                    if self.settings["ReplaceIDKeys"][0].to_bytes(2, 'big') in header:
+                        header = header[:2].replace(self.settings["ReplaceIDKeys"][0].to_bytes(2, 'big'), self.settings["ReplaceIDVals"][0].to_bytes(2, 'big')) + header[2:]
+                        c2s("Replacing client packet ID" + Fore.LIGHTYELLOW_EX + str(
+                            self.settings["ReplaceIDKeys"][0]) + Style.RESET_ALL + " with " +Fore.YELLOW + str(
+                                self.settings["ReplaceIDVals"][0]) + Style.RESET_ALL)
+
                     # Ignore module
                     if packet_id in self.settings["IgnoreC2S"]:
-                        c2s("Ignoring client's 'packet id " + Fore.LIGHTYELLOW_EX + str(packet_id) + Style.RESET_ALL);
+                        c2s("Ignoring client's packet " + Fore.LIGHTYELLOW_EX + str(packet_name) + Style.RESET_ALL)
                         continue
 
-                    c2s("Client sends packet id " + Fore.LIGHTYELLOW_EX + str(packet_id) + Style.RESET_ALL + " with length " + Fore.GREEN + str(length) + Style.RESET_ALL)
+                    # Ignore module
+                    if packet_id in self.settings["DoNotAwaitReplyC2S"]:
+                        c2s("Not waiting reply for client's packet " + Fore.LIGHTYELLOW_EX + str(packet_name) + Style.RESET_ALL);
+                        self.send.send(header + data)
+                        continue
+
+                    c2s("Client sends packet " + Fore.LIGHTYELLOW_EX + str(packet_name) + Style.RESET_ALL + " with length " + Fore.GREEN + str(length) + Style.RESET_ALL)
 
                     self.send.send(header + data)
                     self.send.settimeout(self.settings["TimeOut"]) # set it to around 2 for avrg internet
 
                     try:
                         s2c_header = self.send.recv(7)
-                        s2c_data = self.send.recv(9000024)
+                        s2c_data = self.send.recv(900000024)
                     except:
-                        s2c("Packet id " + Fore.LIGHTYELLOW_EX + str(packet_id) + Style.RESET_ALL + " expired...");
+                        s2c("Packet " + Fore.LIGHTYELLOW_EX + str(packet_name) + Style.RESET_ALL + " expired...");
                         continue
 
                     s2c_packet_id = int.from_bytes(s2c_header[:2], 'big')
                     s2c_length = int.from_bytes(s2c_header[2:5], 'big')
-
+                    try:
+                        s2c_packet_name = PACKETS[str(s2c_packet_id)] + f"({s2c_packet_id})"
+                    except KeyError:
+                        s2c_packet_name = "Unknown" + f"({s2c_packet_id})"
                     if s2c_packet_id in self.settings["IgnoreS2C"]:
-                        s2c("Ignoring server's packet id " + Fore.LIGHTYELLOW_EX + str(s2c_packet_id) + Style.RESET_ALL);
+                        s2c("Ignoring server's packet id " + Fore.LIGHTYELLOW_EX + str(s2c_header[:2].hex()) + " " +str(s2c_packet_id) + Style.RESET_ALL);
                         continue
 
-                    s2c("Server responds packet id " + Fore.LIGHTYELLOW_EX + str(s2c_packet_id) + Style.RESET_ALL + " with length " + Fore.GREEN + str(s2c_length) + Style.RESET_ALL)
-                    print(s2c_data)
+                    s2c("Server responds packet " + Fore.LIGHTYELLOW_EX + str(s2c_packet_name) + Style.RESET_ALL + " with length " + Fore.GREEN + str(s2c_length) + Style.RESET_ALL)
                     self.client.send(s2c_header + s2c_data)
 
 
